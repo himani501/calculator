@@ -7,9 +7,7 @@ pipeline {
   agent any
   stages {
     stage('Cloning Git') {
-      steps {
-        git 'https://github.com/himani501/calculator.git'
-      }
+     checkout scm
     }
     stage('Building image') {
       steps{
@@ -18,7 +16,7 @@ pipeline {
         }
       }
     }
-    stage('Deploy Image') {
+    stage('Push Image') {
       steps{
         script {
           docker.withRegistry( '', registryCredential ) {
@@ -27,10 +25,6 @@ pipeline {
         }
       }
     }
-    stage('Remove Unused docker image') {
-      steps{
-        sh "docker rmi $registry:$BUILD_NUMBER"
-      }
-    }
+
   }
 }

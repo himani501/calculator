@@ -1,46 +1,55 @@
+
 pipeline {
-  environment {
-    registry = "himani501/new-calculator"
-    registryCredential = 'himani'
-    dockerImage = ''
-    dockerImageLatest = ''
-  }
-  agent any
+    environment {
+        registry = "himani501/calculator-1"
+        registryCredential = 'himani-docker-hub'
+        dockerImage = ''
+    }
+    agent none
+    options {
+        skipStagesAfterUnstable()
+    }
     stages {
+        stage('Build') {
+            agent {
+                    docker {
+                        image 'maven:3-alpine'
+                        args '-v /root/.m2:/root/.m2'
 
-        stage('Cloning Git') {
-      steps {
-        git 'https://github.com/himani501/calculator.git'
-      }
-    }
-    stage('Build Executable Jar'){
-        steps {
-             sh 'mvn clean test package'
+                    }
+            }
+            steps {
+                sh 'mvn -B -DskipTests clean package'
+            }
+        }
+        stage('Test') {
+            agent {
+                    docker {
+                        image 'maven:3-alpine'
+                        args '-v /root/.m2:/root/.m2'
+                    }
+            }
+            steps {
+                sh 'mvn test'
+            }
+        }
+        stage('Build Docker Image'){
+            agent none
+            steps{
+               script{
+                   dockerImage = docker.build(registry)
+               }
+            }
+        }
+        stage('Deploy Docker Image'){
+            agent none
+            steps{
+                 script{
+                        docker.withRegistry( '', registryCredential ) {
+                        dockerImage.push()
+                   }
+                 }
+            }
         }
     }
-    stage('Building image') {
-      steps{
-        script {
-          dockerImage = docker.build registry + ":$BUILD_NUMBER"
-          dockerImageLatest = docker.build registry + ":latest"
-        }
-      }
-    }
-
-    stage('Deploy Image') {
-      steps{
-        script {
-          docker.withRegistry( '', registryCredential ) {
-            dockerImage.push()
-            dockerImageLatest.push()
-          }
-        }
-      }
-    }
-    stage('Remove Unused docker image') {
-      steps{
-        sh "docker rmi $registry:$BUILD_NUMBER"
-      }
-    }
-  }
 }

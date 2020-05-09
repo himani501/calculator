@@ -2,7 +2,7 @@
 pipeline {
     environment {
         registry = "himani501/calculator-1"
-        registryCredential = 'himani-docker-hub'
+        registryCredential = 'himani-dockerhub'
         dockerImage = ''
     }
     agent none
@@ -10,6 +10,12 @@ pipeline {
         skipStagesAfterUnstable()
     }
     stages {
+        stage('clone'){
+            agent any
+            steps{
+                git 'https://github.com/himani501/calculator'
+            }
+        }
         stage('Build') {
             agent {
                     docker {
@@ -37,11 +43,11 @@ pipeline {
             agent none
             steps{
                script{
-                   dockerImage = docker.build(registry)
+                   dockerImage = docker.build registry + ":$BUILD_NUMBER"
                }
             }
         }
-        stage('Deploy Docker Image'){
+        stage('Deploy Docker Image to Docker Hub'){
             agent none
             steps{
                  script{
@@ -50,6 +56,27 @@ pipeline {
                    }
                  }
             }
+        }
+        stage('Remove Unused docker image') {
+          agent any  
+          steps{
+            sh "docker rmi $registry:$BUILD_NUMBER"
+          }
+        }
+        stage('Deploy Docker Image to Node 1 via Rundeck'){
+            agent any
+                steps{
+                    script{
+                        step([$class: "RundeckNotifier",
+                        includeRundeckLogs: true,
+                        jobId: "cfe8ee5d-4d5a-418d-816f-3f6c407d1420",
+                        rundeckInstance: "Rundeck",
+                        shouldFailTheBuild: true,
+                        shouldWaitForRunDeckJob: true,
+                        tailLog:true])
+                    }
+                }
+            
         }
     }
 }
